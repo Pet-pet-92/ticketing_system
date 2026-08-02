@@ -2,8 +2,9 @@ from django.db import models
 from django.utils import timezone
 import datetime
 
-                                        # 1) TicketCategory Table
-
+# ============================================
+# 1) TicketCategory Table
+# ============================================
 class TicketCategory(models.Model):
     """
     Ticket Category Model
@@ -21,17 +22,16 @@ class TicketCategory(models.Model):
     icon = models.CharField(
         max_length=50,
         blank=True,
-        null=True,  # ← Add this
+        null=True,
         help_text="Image"
     )
     color = models.CharField(
         max_length=20,
         blank=True,
-        null=True,  # ← Add this
+        null=True,
         default='#6c757d',
         help_text="Hex color code for UI"
     )
-    
     is_active = models.BooleanField(
         default=True,
         help_text="Is this category active and available?"
@@ -51,8 +51,10 @@ class TicketCategory(models.Model):
     def ticket_count(self):
         return self.tickets.count()
 
-                                        # 2) TicketType Table
 
+# ============================================
+# 2) TicketType Table
+# ============================================
 class TicketType(models.Model):
     """
     Ticket Type Model
@@ -101,15 +103,15 @@ class TicketType(models.Model):
         return self.tickets.count()
 
 
-                                        # 3) PriorityRule Table 
-
+# ============================================
+# 3) PriorityRule Table
+# ============================================
 class PriorityRule(models.Model):
     """
     Configurable priority rule
     Admins can add/edit/delete these rules via admin panel
     """
     
-    # The category this rule applies to
     category = models.ForeignKey(
         TicketCategory,
         on_delete=models.CASCADE,
@@ -117,8 +119,6 @@ class PriorityRule(models.Model):
         blank=True,
         help_text="Category to match (leave blank for any)"
     )
-    
-    # The type this rule applies to
     type = models.ForeignKey(
         TicketType,
         on_delete=models.CASCADE,
@@ -126,15 +126,11 @@ class PriorityRule(models.Model):
         blank=True,
         help_text="Type to match (leave blank for any)"
     )
-    
-    # Keyword to match in description
     keyword = models.CharField(
         max_length=100,
         blank=True,
         help_text="Keyword to search for in description"
     )
-    
-    # The priority to assign when matched
     priority = models.CharField(
         max_length=20,
         choices=[
@@ -145,20 +141,14 @@ class PriorityRule(models.Model):
         ],
         help_text="Priority to assign"
     )
-    
-    # Order of evaluation (rules are checked in this order)
     order = models.IntegerField(
         default=0,
         help_text="Lower number = checked first"
     )
-    
-    # Status
     is_active = models.BooleanField(
         default=True,
         help_text="Is this rule active?"
     )
-    
-    # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -180,23 +170,19 @@ class PriorityRule(models.Model):
     
     def matches(self, ticket):
         """Check if this rule matches a given ticket"""
-        # Check category
         if self.category and ticket.category != self.category:
             return False
-        
-        # Check type
         if self.type and ticket.type != self.type:
             return False
-        
-        # Check keyword
         if self.keyword:
             if self.keyword.lower() not in ticket.description.lower():
                 return False
-        
         return True
 
 
-                                    # 4) SLA Table
+# ============================================
+# 4) SLA Table
+# ============================================
 class SLA(models.Model):
     """
     Service Level Agreement Model
@@ -267,8 +253,10 @@ class SLA(models.Model):
                 return f"{days} day(s)"
             return f"{days} day(s) {hours} hour(s)"
 
-                                   # 5) DEPARTMENT MODEL
 
+# ============================================
+# 5) Department Model
+# ============================================
 class Department(models.Model):
     """
     Department Model
@@ -284,17 +272,16 @@ class Department(models.Model):
     icon = models.CharField(
         max_length=50,
         blank=True,
-        null=True,  # ← Add this
+        null=True,
         help_text="FontAwesome icon name (e.g., fa-users, fa-building)"
     )
     color = models.CharField(
         max_length=20,
         blank=True,
-        null=True,  # ← Add this
+        null=True,
         default='#6c757d',
         help_text="Hex color code for UI"
     )
-
     is_active = models.BooleanField(
         default=True,
         help_text="Is this department active?"
@@ -312,11 +299,12 @@ class Department(models.Model):
     
     @property
     def ticket_count(self):
-        """Count tickets from this department"""
         return self.tickets.count()
 
-                                        # 6) Ticket Table (Main)
 
+# ============================================
+# 6) Ticket Table (Main)
+# ============================================
 class Ticket(models.Model):
     """
     Ticket Model - Core of your ticketing system
@@ -352,7 +340,18 @@ class Ticket(models.Model):
         help_text="Automatically calculated priority"
     )
     
-    # Relationships to Category and Type
+    # ============================================
+    # TICKET NUMBER FIELD (NEW)
+    # ============================================
+    ticket_number = models.CharField(
+        max_length=20,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text="Unique ticket number (e.g., T-H-001)"
+    )
+    
+    # Relationships
     category = models.ForeignKey(
         TicketCategory,
         on_delete=models.SET_NULL,
@@ -366,6 +365,14 @@ class Ticket(models.Model):
         null=True,
         blank=True,
         related_name='tickets'
+    )
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tickets',
+        help_text="Which department this ticket is from"
     )
     
     # User Relationships
@@ -381,16 +388,6 @@ class Ticket(models.Model):
         blank=True,
         related_name='assigned_tickets'
     )
-
-        # Relationship to Department
-    department = models.ForeignKey(
-        Department,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='tickets',
-        help_text="Which department this ticket is from"
-    )
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -398,7 +395,6 @@ class Ticket(models.Model):
     resolved_at = models.DateTimeField(null=True, blank=True)
     
     # SLA Fields
-    
     sla = models.ForeignKey(
         SLA,
         on_delete=models.SET_NULL,
@@ -447,66 +443,121 @@ class Ticket(models.Model):
         verbose_name_plural = "Ticket Creation"
     
     def __str__(self):
-        return f"{self.title} - {self.get_status_display()}"
+        return f"{self.ticket_number or self.id} - {self.title} - {self.get_status_display()}"
     
-    # PRIORITY AUTOMATION 
-   
+    # ============================================
+    # TICKET NUMBER GENERATION (NEW)
+    # ============================================
+    def generate_ticket_number(self):
+        """
+        Generate a unique ticket number
+        Format: T-{category_code}-{sequential_number}
+        Example: T-H-001 (Hardware ticket #1)
+        """
+        # Get category code
+        category_code = 'GEN'  # Default
+        
+        if self.category and self.category.name:
+            # Get the first letter of category, uppercase
+            category_code = self.category.name[0].upper()
+        
+        # Get the last ticket number for this category
+        prefix = f"T-{category_code}-"
+        last_ticket = Ticket.objects.filter(
+            ticket_number__startswith=prefix
+        ).order_by('-ticket_number').first()
+        
+        if last_ticket and last_ticket.ticket_number:
+            try:
+                last_num = int(last_ticket.ticket_number.split('-')[-1])
+                new_num = last_num + 1
+            except (ValueError, IndexError):
+                new_num = 1
+        else:
+            new_num = 1
+        
+        # Format with leading zeros (001, 002, etc.)
+        return f"{prefix}{new_num:03d}"
+    
+    # ============================================
+    # PROPERTIES
+    # ============================================
+    @property
+    def is_open(self):
+        """Check if ticket is still open (not resolved or closed)"""
+        return self.status in ['open', 'in_progress']
+    
+    @property
+    def comment_count(self):
+        """Count how many comments this ticket has"""
+        return self.comments.count()
+    
+    @property
+    def time_to_resolution(self):
+        """Calculate how long it took to resolve"""
+        if self.resolved_at and self.created_at:
+            return self.resolved_at - self.created_at
+        return None
+    
+    # ============================================
+    # PRIORITY AUTOMATION
+    # ============================================
     def calculate_priority(self):
         """
         Automatically calculate priority using configurable rules.
         If no rules match, default to 'medium'.
         """
-        # Get all active rules, ordered by 'order'
         rules = PriorityRule.objects.filter(is_active=True).order_by('order')
         
-        # Check each rule
         for rule in rules:
             if rule.matches(self):
                 return rule.priority
         
-        # Default: Medium
         return 'medium'
     
-   
+    # ============================================
     # OVERRIDE SAVE METHOD
-   
-def save(self, *args, **kwargs):
-    """Auto-assign priority, apply SLA, and assign to agent"""
+    # ============================================
+    def save(self, *args, **kwargs):
+        """Auto-assign priority, apply SLA, generate ticket number, and assign to agent"""
+        
+        is_new = not self.pk or self._state.adding
+        
+        # 1. Generate ticket number for new tickets
+        if is_new and not self.ticket_number:
+            self.ticket_number = self.generate_ticket_number()
+        
+        # 2. Auto-calculate priority for new tickets
+        if is_new:
+            self.priority = self.calculate_priority()
+            self.apply_sla()
+        else:
+            # Check if priority changed
+            try:
+                original = Ticket.objects.get(pk=self.pk)
+                if original.priority != self.priority:
+                    self.apply_sla()
+            except Ticket.DoesNotExist:
+                pass
+        
+        # 3. Handle resolved_at
+        if self.status == 'resolved' and not self.resolved_at:
+            self.resolved_at = timezone.now()
+        elif self.status != 'resolved' and self.resolved_at:
+            self.resolved_at = None
+        
+        # 4. Save the ticket first (so it has an ID)
+        super().save(*args, **kwargs)
+        
+        # 5. Auto-assign ONLY if it's a new ticket and not already assigned
+        if is_new and not self.assigned_to:
+            self.assign_ticket()
+            if self.assigned_to:
+                super().save(update_fields=['assigned_to'])
     
-    is_new = not self.pk or self._state.adding
-    
-    # 1. Auto-calculate priority for new tickets
-    if is_new:
-        self.priority = self.calculate_priority()
-        self.apply_sla()
-    else:
-        # Check if priority changed
-        try:
-            original = Ticket.objects.get(pk=self.pk)
-            if original.priority != self.priority:
-                self.apply_sla()
-        except Ticket.DoesNotExist:
-            pass
-    
-    # 2. Handle resolved_at
-    if self.status == 'resolved' and not self.resolved_at:
-        self.resolved_at = timezone.now()
-    elif self.status != 'resolved' and self.resolved_at:
-        self.resolved_at = None
-    
-    # 3. Save the ticket first (so it has an ID)
-    super().save(*args, **kwargs)
-    
-    # 4. Auto-assign ONLY if it's a new ticket and not already assigned
-    if is_new and not self.assigned_to:
-        self.assign_ticket()
-        # Save again if assignment changed
-        if self.assigned_to:
-            super().save(update_fields=['assigned_to'])
-
-    
+    # ============================================
     # SLA METHODS
-   
+    # ============================================
     def apply_sla(self):
         """
         Apply SLA rules to this ticket based on its priority.
@@ -586,100 +637,81 @@ def save(self, *args, **kwargs):
         if not self.first_response_at and user != self.created_by:
             self.first_response_at = timezone.now()
             self.save()
-
-  
-# TICKET ASSIGNMENT LOGIC
-
-def assign_ticket(self):
-    """
-    Automatically assign a ticket to the best available agent.
-    Uses: Availability → Skill-Based → Least Busy
-    """
-    from django.contrib.auth.models import User
     
-    # Step 1: Get all agents who can take tickets
-    available_agents = AgentAvailability.objects.filter(
-        is_active=True,
-        status__in=['available', 'busy']
-    )
-    
-    # Filter agents who have not reached max workload
-    eligible_agents = []
-    for availability in available_agents:
-        if availability.can_take_tickets:
-            eligible_agents.append(availability.agent)
-    
-    if not eligible_agents:
-        # No available agents
+    # ============================================
+    # ASSIGNMENT LOGIC
+    # ============================================
+    def assign_ticket(self):
+        """
+        Automatically assign a ticket to the best available agent.
+        Uses: Availability → Skill-Based → Least Busy
+        """
+        from django.contrib.auth.models import User
+        from .models import AgentAvailability, AgentSkill
+        
+        # Step 1: Get all agents who can take tickets
+        available_agents = AgentAvailability.objects.filter(
+            is_active=True,
+            status__in=['available', 'busy']
+        )
+        
+        # Filter agents who have not reached max workload
+        eligible_agents = []
+        for availability in available_agents:
+            if availability.can_take_tickets:
+                eligible_agents.append(availability.agent)
+        
+        if not eligible_agents:
+            return False
+        
+        # Step 2: Skill-Based Filtering
+        skilled_agents = []
+        if self.category:
+            for agent in eligible_agents:
+                has_skill = AgentSkill.objects.filter(
+                    agent=agent,
+                    category=self.category
+                ).exists()
+                if has_skill:
+                    skilled_agents.append(agent)
+        
+        if not skilled_agents:
+            skilled_agents = eligible_agents
+        
+        # Step 3: Least Busy — pick the agent with the fewest tickets
+        best_agent = None
+        lowest_load = None
+        
+        for agent in skilled_agents:
+            ticket_count = Ticket.objects.filter(
+                assigned_to=agent,
+                status__in=['open', 'in_progress']
+            ).count()
+            
+            if lowest_load is None or ticket_count < lowest_load:
+                lowest_load = ticket_count
+                best_agent = agent
+        
+        # Assign the ticket
+        if best_agent:
+            self.assigned_to = best_agent
+            
+            try:
+                availability = AgentAvailability.objects.get(agent=best_agent)
+                availability.last_assigned_at = timezone.now()
+                availability.save()
+            except AgentAvailability.DoesNotExist:
+                pass
+            
+            self.save()
+            return True
+        
         return False
-    
-    # Step 2: Skill-Based Filtering
-    skilled_agents = []
-    if self.category:
-        for agent in eligible_agents:
-            # Check if agent has a skill for this category
-            has_skill = AgentSkill.objects.filter(
-                agent=agent,
-                category=self.category
-            ).exists()
-            if has_skill:
-                skilled_agents.append(agent)
-    
-    # If no skilled agents found, use all eligible agents
-    if not skilled_agents:
-        skilled_agents = eligible_agents
-    
-    # Step 3: Least Busy — pick the agent with the fewest tickets
-    best_agent = None
-    lowest_load = None
-    
-    for agent in skilled_agents:
-        ticket_count = Ticket.objects.filter(
-            assigned_to=agent,
-            status__in=['open', 'in_progress']
-        ).count()
-        
-        if lowest_load is None or ticket_count < lowest_load:
-            lowest_load = ticket_count
-            best_agent = agent
-    
-    # Assign the ticket
-    if best_agent:
-        self.assigned_to = best_agent
-        
-        # Update last assigned timestamp
-        try:
-            availability = AgentAvailability.objects.get(agent=best_agent)
-            availability.last_assigned_at = timezone.now()
-            availability.save()
-        except AgentAvailability.DoesNotExist:
-            pass
-        
-        self.save()
-        return True
-    
-    return False       
-    
-
-    # PROPERTIES
-
-@property
-def is_open(self):
-    return self.status in ['open', 'in_progress']
-
-@property
-def time_to_resolution(self):
-    if self.resolved_at and self.created_at:
-        return self.resolved_at - self.created_at
-    return None
-
-@property
-def comment_count(self):
-    return self.comments.count()
 
 
-                                   # 6) TicketComment Table
-
+# ============================================
+# 7) TicketComment Table
+# ============================================
 class TicketComment(models.Model):
     """
     Ticket Comment Model
@@ -712,10 +744,11 @@ class TicketComment(models.Model):
     
     def __str__(self):
         return f"Comment by {self.user.username} on {self.ticket.title}"
-    
-    
-#  AGENT SKILL MODEL
 
+
+# ============================================
+# 8) AgentSkill Model
+# ============================================
 class AgentSkill(models.Model):
     """
     Skills that agents possess
@@ -752,8 +785,9 @@ class AgentSkill(models.Model):
         return f"{self.agent.username} - {self.category.name} (Level {self.proficiency})"
 
 
-                                            # 7) AGENT AVAILABILITY MODEL
-
+# ============================================
+# 9) AgentAvailability Model
+# ============================================
 class AgentAvailability(models.Model):
     """
     Tracks agent availability and workload
@@ -822,8 +856,10 @@ class AgentAvailability(models.Model):
             return False
         return True
 
-                                        # 8) ASSIGNMENT RULE MODEL 
 
+# ============================================
+# 10) AssignmentRule Model
+# ============================================
 class AssignmentRule(models.Model):
     """
     Configurable rules for automated assignment
@@ -864,9 +900,10 @@ class AssignmentRule(models.Model):
     def __str__(self):
         return f"{self.name} ({self.get_strategy_display()})"
 
-        
-                                                    # 9) REPORT MODEL
 
+# ============================================
+# 11) Report Model
+# ============================================
 class Report(models.Model):
     """
     Stores generated reports for historical reference
@@ -901,9 +938,9 @@ class Report(models.Model):
         return f"{self.get_report_type_display()} - {self.generated_at.strftime('%Y-%m-%d %H:%M')}"
 
 
-
-                                                #10) REPORT SCHEDULE MODEL
-
+# ============================================
+# 12) ReportSchedule Model
+# ============================================
 class ReportSchedule(models.Model):
     """
     Schedules automated reports
@@ -935,5 +972,3 @@ class ReportSchedule(models.Model):
     
     def __str__(self):
         return f"{self.name} ({self.get_frequency_display()})"
-
-
