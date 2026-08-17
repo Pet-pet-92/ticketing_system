@@ -9,6 +9,7 @@ import SidebarToggle from './components/common/SidebarToggle';
 import CreateTicketPage from './pages/CreateTicketPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import TicketDetailPage from './pages/TicketDetailPage';
+import ReportsPage from './pages/ReportsPage';
 
 // Management Pages
 import CategoriesPage from './pages/CategoriesPage';
@@ -215,6 +216,18 @@ function App() {
                             </ProtectedRoute>
                         }
                     />
+                                        
+                                        <Route
+                        path="/reports"
+                        element={
+                            <ProtectedRoute>
+                                <Layout>
+                                    <ReportsPage />
+                                </Layout>
+                            </ProtectedRoute>
+                        }
+                    />
+
                     <Route
                         path="/reports/sla"
                         element={

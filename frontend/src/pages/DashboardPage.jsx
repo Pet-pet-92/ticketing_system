@@ -51,6 +51,10 @@ const DashboardPage = () => {
         return () => clearInterval(interval);
     }, []);
 
+    const goToTicket = (ticketId) => {
+        window.location.href = `/tickets/${ticketId}`;
+    };
+
     if (loading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -69,11 +73,6 @@ const DashboardPage = () => {
         if (isAdmin) return 'Viewing all tickets in the system';
         if (isAgent) return 'Viewing tickets assigned to you';
         return 'Viewing tickets you have created';
-    };
-
-    //  Navigate to ticket detail page
-    const goToTicket = (ticketId) => {
-        window.location.href = `/tickets/${ticketId}`;
     };
 
     return (
@@ -150,12 +149,27 @@ const DashboardPage = () => {
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead style={{ background: '#f9fafb' }}>
                             <tr>
-                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Ticket #</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Title</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Status</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Priority</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Assigned To</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Created</th>
+                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>
+                                    Ticket Number
+                                </th>
+                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>
+                                    Title
+                                </th>
+                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>
+                                    Status
+                                </th>
+                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>
+                                    Priority
+                                </th>
+                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>
+                                    Assigned To
+                                </th>
+                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>
+                                    Created By
+                                </th>
+                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>
+                                    Created
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -206,6 +220,9 @@ const DashboardPage = () => {
                                                 {ticket.assigned_to || 'Unassigned'}
                                             </td>
                                             <td style={{ padding: '12px 16px', fontSize: '14px' }}>
+                                                {ticket.created_by || 'Unknown'}
+                                            </td>
+                                            <td style={{ padding: '12px 16px', fontSize: '14px' }}>
                                                 {new Date(ticket.created_at).toLocaleDateString()}
                                             </td>
                                         </tr>
@@ -213,7 +230,7 @@ const DashboardPage = () => {
                                 })
                             ) : (
                                 <tr>
-                                    <td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: '#6b7280' }}>
+                                    <td colSpan="7" style={{ padding: '24px', textAlign: 'center', color: '#6b7280' }}>
                                         {isAdmin ? 'No tickets found' : isAgent ? 'No tickets assigned to you' : 'You have not created any tickets yet'}
                                     </td>
                                 </tr>

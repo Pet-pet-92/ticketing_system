@@ -124,6 +124,7 @@ class RegisterView(APIView):
             }
         }, status=status.HTTP_201_CREATED)
 
+
 # ============================================
 # TICKET VIEWSET
 # ============================================
@@ -231,14 +232,163 @@ class TicketViewSet(viewsets.ModelViewSet):
             'resolved': tickets.filter(status='resolved').count(),
             'closed': tickets.filter(status='closed').count(),
         })
-    
+
+    # ============================================
+    # REASSIGN TICKET (Admin/Superadmin only)
+    # ============================================
+    @action(detail=True, methods=['post'])
+    def reassign(self, request, pk=None):
+        """Reassign ticket to another agent"""
+        ticket = self.get_object()
+        new_agent_id = request.data.get('assigned_to')
+        
+        # Check if user is admin or superadmin
+        if not (request.user.is_superuser or request.user.groups.filter(name='Admin').exists()):
+            return Response(
+                {'error': 'Only admins can reassign tickets'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Validate new agent
+        if not new_agent_id:
+            return Response(
+                {'error': 'Please select an agent to assign'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            new_agent = User.objects.get(id=new_agent_id)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'Agent not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if the user is an agent
+        if not (new_agent.groups.filter(name='Support_Agent').exists() or new_agent.is_staff):
+            return Response(
+                {'error': 'Selected user is not an agent'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Reassign ticket
+        old_agent = ticket.assigned_to
+        ticket.assigned_to = new_agent
+        ticket.save()
+        
+        return Response({
+            'success': True,
+            'message': f'Ticket reassigned from {old_agent.username if old_agent else "Unassigned"} to {new_agent.username}',
+            'assigned_to': new_agent.username,
+        })
+
+    @action(detail=False, methods=['get'])
+    def available_agents(self, request):
+        """Get list of available agents for reassignment"""
+        if not (request.user.is_superuser or request.user.groups.filter(name='Admin').exists()):
+            return Response(
+                {'error': 'Only admins can view available agents'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        agents = User.objects.filter(
+            groups__name='Support_Agent'
+        ).values('id', 'username', 'email')
+        
+        return Response(list(agents))
+
+    @action(detail=False, methods=['get'])
+    def filtered(self, request):
+        """Get tickets with filters for admin dashboard"""
+        user = request.user
+        
+        # Base queryset based on role
+        if user.is_superuser or user.groups.filter(name='Admin').exists():
+            tickets = Ticket.objects.all()
+        elif user.groups.filter(name='Support_Agent').exists() or user.is_staff:
+            tickets = Ticket.objects.filter(assigned_to=user)
+        else:
+            tickets = Ticket.objects.filter(created_by=user)
+        
+        # Date range filter
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        if start_date:
+            try:
+                start = datetime.strptime(start_date, '%Y-%m-%d')
+                tickets = tickets.filter(created_at__date__gte=start)
+            except ValueError:
+                pass
+        if end_date:
+            try:
+                end = datetime.strptime(end_date, '%Y-%m-%d')
+                tickets = tickets.filter(created_at__date__lte=end)
+            except ValueError:
+                pass
+        
+        # Status filter
+        status = request.query_params.get('status')
+        if status:
+            tickets = tickets.filter(status=status)
+        
+        # Priority filter
+        priority = request.query_params.get('priority')
+        if priority:
+            tickets = tickets.filter(priority=priority)
+        
+        # Assigned to filter (admin only)
+        assigned_to = request.query_params.get('assigned_to')
+        if assigned_to and (user.is_superuser or user.groups.filter(name='Admin').exists()):
+            tickets = tickets.filter(assigned_to__id=assigned_to)
+        
+        # Search filter
+        search = request.query_params.get('search')
+        if search:
+            tickets = tickets.filter(
+                Q(title__icontains=search) | 
+                Q(ticket_number__icontains=search)
+            )
+        
+        # Pagination
+        limit = int(request.query_params.get('limit', 20))
+        tickets = tickets.order_by('-created_at')[:limit]
+        
+        serializer = self.get_serializer(tickets, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def filter_options(self, request):
+        """Get available filter options"""
+        user = request.user
+        
+        # Get all agents (only for admin)
+        agents = []
+        if user.is_superuser or user.groups.filter(name='Admin').exists():
+            agents = list(User.objects.filter(groups__name='Support_Agent').values('id', 'username'))
+        else:
+            # Agents see only themselves
+            agents = [{'id': user.id, 'username': user.username}]
+        
+        return Response({
+            'statuses': [
+                {'value': 'open', 'label': 'Open'},
+                {'value': 'in_progress', 'label': 'In Progress'},
+                {'value': 'resolved', 'label': 'Resolved'},
+                {'value': 'closed', 'label': 'Closed'},
+            ],
+            'priorities': [
+                {'value': 'low', 'label': 'Low'},
+                {'value': 'medium', 'label': 'Medium'},
+                {'value': 'high', 'label': 'High'},
+                {'value': 'critical', 'label': 'Critical'},
+            ],
+            'agents': agents,
+        })
+
+
 # ============================================
 # ANALYTICS VIEW
 # ============================================
-from django.db.models import Count, Q
-from django.utils import timezone
-from datetime import timedelta
-
 class AnalyticsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -326,6 +476,7 @@ class AnalyticsView(APIView):
             'sla_compliance': sla_compliance,
         })
 
+
 # ============================================
 # TICKET CATEGORY VIEWSET
 # ============================================
@@ -352,7 +503,8 @@ class DepartmentViewSet(viewsets.ModelViewSet):
     serializer_class = DepartmentSerializer
     permission_classes = [IsAuthenticated]
 
-    # ============================================
+
+# ============================================
 # PRIORITY RULE VIEWSET
 # ============================================
 class PriorityRuleViewSet(viewsets.ModelViewSet):
@@ -381,17 +533,10 @@ class SLAViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return SLA.objects.all().order_by('priority')
 
+
 # ============================================
 # USER VIEWS
 # ============================================
-from django.contrib.auth.models import User, Group
-from rest_framework import viewsets, permissions, status
-from rest_framework.response import Response
-from rest_framework.decorators import action
-from .serializers import UserSerializer, UserCreateSerializer, GroupSerializer, PermissionSerializer
-from django.contrib.auth.models import Permission
-
-
 class UserViewSet(viewsets.ModelViewSet):
     """
     API endpoint for Users
@@ -506,7 +651,8 @@ class PermissionViewSet(viewsets.ReadOnlyModelViewSet):
             return Permission.objects.all().order_by('content_type__app_label', 'codename')
         return Permission.objects.none()
 
-    # ============================================
+
+# ============================================
 # REPORT VIEWS
 # ============================================
 from rest_framework.views import APIView
@@ -807,3 +953,40 @@ class WorkloadReportView(APIView):
             'total_open_tickets': sum(w['open_tickets'] for w in workload_data),
             'workload_summary': workload_data,
         })
+
+class DepartmentReportView(APIView):
+    """
+    Department Report
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        departments = Department.objects.filter(is_active=True)
+        report_data = []
+
+        for dept in departments:
+            tickets = Ticket.objects.filter(department=dept)
+            report_data.append({
+                'name': dept.name,
+                'total': tickets.count(),
+                'open': tickets.filter(status='open').count(),
+                'in_progress': tickets.filter(status='in_progress').count(),
+                'resolved': tickets.filter(status='resolved').count(),
+                'closed': tickets.filter(status='closed').count(),
+            })
+
+        # Also include uncategorized tickets
+        uncategorized = Ticket.objects.filter(department__isnull=True)
+        if uncategorized.exists():
+            report_data.append({
+                'name': 'Uncategorized',
+                'total': uncategorized.count(),
+                'open': uncategorized.filter(status='open').count(),
+                'in_progress': uncategorized.filter(status='in_progress').count(),
+                'resolved': uncategorized.filter(status='resolved').count(),
+                'closed': uncategorized.filter(status='closed').count(),
+            })
+
+        return Response({
+            'departments': report_data,
+        })   

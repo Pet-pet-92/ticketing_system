@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import TicketComments from '../components/tickets/TicketComments';
+import TicketReassign from '../components/tickets/TicketReassign';
 
 const TicketDetailPage = () => {
     const { id } = useParams();
@@ -11,7 +12,9 @@ const TicketDetailPage = () => {
     const [ticket, setTicket] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [updating, setUpdating] = useState(false);
+
+    const isAdmin = user?.is_superuser || user?.groups?.includes('Admin');
+    const isAgent = user?.groups?.includes('Support_Agent') || user?.is_staff;
 
     const fetchTicket = async () => {
         setLoading(true);
@@ -30,14 +33,11 @@ const TicketDetailPage = () => {
     }, [id]);
 
     const handleStatusChange = async (newStatus) => {
-        setUpdating(true);
         try {
             await api.post(`/tickets/${id}/update_status/`, { status: newStatus });
             fetchTicket();
         } catch (err) {
             setError('Failed to update status');
-        } finally {
-            setUpdating(false);
         }
     };
 
@@ -71,9 +71,6 @@ const TicketDetailPage = () => {
         );
     }
 
-    const isAgent = user?.groups?.includes('Support_Agent') || user?.is_staff;
-    const isAdmin = user?.is_superuser;
-
     return (
         <div style={{ padding: '24px', maxWidth: '900px', margin: '0 auto' }}>
             {/* Back button */}
@@ -102,18 +99,27 @@ const TicketDetailPage = () => {
                         {ticket.created_by && ` by ${ticket.created_by}`}
                     </p>
                 </div>
-                <div style={{
-                    padding: '4px 12px',
-                    borderRadius: '9999px',
-                    fontSize: '14px',
-                    background: ticket.status === 'open' ? '#dbeafe' :
-                              ticket.status === 'in_progress' ? '#fef3c7' :
-                              ticket.status === 'resolved' ? '#d1fae5' : '#f3f4f6',
-                    color: ticket.status === 'open' ? '#1d4ed8' :
-                           ticket.status === 'in_progress' ? '#b45309' :
-                           ticket.status === 'resolved' ? '#065f46' : '#4b5563',
-                }}>
-                    {ticket.status?.replace('_', ' ')}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span style={{
+                        padding: '4px 12px',
+                        borderRadius: '9999px',
+                        fontSize: '14px',
+                        background: ticket.status === 'open' ? '#dbeafe' :
+                                  ticket.status === 'in_progress' ? '#fef3c7' :
+                                  ticket.status === 'resolved' ? '#d1fae5' : '#f3f4f6',
+                        color: ticket.status === 'open' ? '#1d4ed8' :
+                               ticket.status === 'in_progress' ? '#b45309' :
+                               ticket.status === 'resolved' ? '#065f46' : '#4b5563',
+                    }}>
+                        {ticket.status?.replace('_', ' ')}
+                    </span>
+                    {isAdmin && (
+                        <TicketReassign
+                            ticketId={ticket.id}
+                            currentAssignee={ticket.assigned_to}
+                            onReassigned={fetchTicket}
+                        />
+                    )}
                 </div>
             </div>
 
@@ -157,14 +163,14 @@ const TicketDetailPage = () => {
                                 <button
                                     key={status}
                                     onClick={() => handleStatusChange(status)}
-                                    disabled={status === ticket.status || updating}
+                                    disabled={status === ticket.status}
                                     style={{
                                         padding: '6px 12px',
                                         borderRadius: '4px',
                                         border: status === ticket.status ? '2px solid #2563eb' : '1px solid #d1d5db',
                                         background: status === ticket.status ? '#eff6ff' : 'white',
                                         color: status === ticket.status ? '#2563eb' : '#4b5563',
-                                        cursor: status === ticket.status || updating ? 'default' : 'pointer',
+                                        cursor: status === ticket.status ? 'default' : 'pointer',
                                         fontSize: '12px',
                                         textTransform: 'capitalize',
                                     }}
@@ -177,9 +183,7 @@ const TicketDetailPage = () => {
                 )}
             </div>
 
-            {/* ============================================ */}
-            {/* COMMENTS SECTION */}
-            {/* ============================================ */}
+            {/* Comments Section */}
             <TicketComments ticketId={ticket.id} />
         </div>
     );

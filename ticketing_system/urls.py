@@ -25,6 +25,7 @@ from tickets.views import (
     WeeklyReportView,
     SLAReportView,
     WorkloadReportView,
+    DepartmentReportView,
 )
 
 router = DefaultRouter()
@@ -75,4 +76,20 @@ urlpatterns = [
     path('api/reports/weekly/', WeeklyReportView.as_view(), name='weekly_report'),
     path('api/reports/sla/', SLAReportView.as_view(), name='sla_report'),
     path('api/reports/workload/', WorkloadReportView.as_view(), name='workload_report'),
+    path('api/reports/departments/', DepartmentReportView.as_view(), name='department_report'),
+    
+    # ============================================
+    # REASSIGN & FILTERING ENDPOINTS (NEW)
+    # ============================================
+    # Reassign ticket (Admin/Superadmin only)
+    path('api/tickets/<int:pk>/reassign/', TicketViewSet.as_view({'post': 'reassign'}), name='ticket_reassign'),
+    
+    # Get available agents for dropdown
+    path('api/tickets/available-agents/', TicketViewSet.as_view({'get': 'available_agents'}), name='available_agents'),
+    
+    # Filtered tickets with query parameters
+    path('api/tickets/filtered/', TicketViewSet.as_view({'get': 'filtered'}), name='filtered_tickets'),
+    
+    # Get filter options (statuses, priorities, agents)
+    path('api/tickets/filter-options/', TicketViewSet.as_view({'get': 'filter_options'}), name='filter_options'),
 ]
