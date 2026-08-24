@@ -20,7 +20,7 @@ import SLARulesPage from './pages/SLARulesPage';
 
 // Users page
 import UsersPage from './pages/UsersPage';
-import RolesPage from './pages/RolesPage';
+//import RolesPage from './pages/RolesPage';
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
@@ -178,18 +178,9 @@ function App() {
                         }
                     />
 
-                    <Route
-                        path="/roles"
-                        element={
-                            <ProtectedRoute>
-                                <Layout>
-                                    <RolesPage />
-                                </Layout>
-                            </ProtectedRoute>
-                        }
-                    />
+                
 
-                    {/* ✅ UNIFIED REPORTS ROUTE (One page with dropdown) */}
+                    {/*  UNIFIED REPORTS ROUTE (One page with dropdown) */}
                     <Route
                         path="/reports"
                         element={

@@ -3,7 +3,6 @@ import api from '../api/axios';
 
 const UsersPage = () => {
     const [users, setUsers] = useState([]);
-    const [roles, setRoles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [showModal, setShowModal] = useState(false);
@@ -31,18 +30,8 @@ const UsersPage = () => {
         }
     };
 
-    const fetchRoles = async () => {
-        try {
-            const response = await api.get('/roles/');
-            setRoles(response.data || []);
-        } catch (err) {
-            console.error('Failed to load roles:', err);
-        }
-    };
-
     useEffect(() => {
         fetchUsers();
-        fetchRoles();
     }, []);
 
     const handleAdd = () => {
@@ -62,13 +51,23 @@ const UsersPage = () => {
 
     const handleEdit = (user) => {
         setEditingUser(user);
+        // Determine role from user groups or superuser status
+        let role = 'User';
+        if (user.is_superuser) {
+            role = 'Admin';
+        } else if (user.groups && user.groups.includes('Support_Agent')) {
+            role = 'Agent';
+        } else if (user.role) {
+            role = user.role;
+        }
+        
         setFormData({
             username: user.username,
             email: user.email || '',
             first_name: user.first_name || '',
             last_name: user.last_name || '',
             password: '',
-            role: user.role || 'User',
+            role: role,
             is_active: user.is_active,
             is_staff: user.is_staff,
         });
@@ -96,7 +95,7 @@ const UsersPage = () => {
                 last_name: formData.last_name,
                 role: formData.role,
                 is_active: formData.is_active,
-                is_staff: formData.is_staff,
+                is_staff: formData.is_staff || formData.role !== 'User',
             };
 
             if (formData.password) {
@@ -104,14 +103,40 @@ const UsersPage = () => {
             }
 
             if (editingUser) {
+                //  Update user with role change
                 await api.put(`/users/${editingUser.id}/`, payload);
+                
+                //  If role changed, update the role via the dedicated endpoint
+                if (editingUser.role !== formData.role) {
+                    await api.post(`/users/${editingUser.id}/set_role/`, {
+                        role: formData.role,
+                    });
+                }
             } else {
+                //  Create new user with role
                 await api.post('/users/', payload);
             }
             setShowModal(false);
             fetchUsers();
         } catch (err) {
             setError('Failed to save user');
+            console.error(err);
+        }
+    };
+
+    // Helper to get role display
+    const getRoleDisplay = (user) => {
+        if (user.is_superuser) return 'Admin';
+        if (user.groups && user.groups.includes('Support_Agent')) return 'Agent';
+        return user.role || 'User';
+    };
+
+    // Helper to get role color
+    const getRoleColor = (role) => {
+        switch (role) {
+            case 'Admin': return '#dc2626';
+            case 'Agent': return '#f59e0b';
+            default: return '#3b82f6';
         }
     };
 
@@ -162,12 +187,12 @@ const UsersPage = () => {
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead style={{ background: '#f9fafb' }}>
                             <tr>
-                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280' }}>ID</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280' }}>Username</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280' }}>Email</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280' }}>Role</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280' }}>Status</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '500', color: '#6b7280' }}>Actions</th>
+                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>ID</th>
+                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Username</th>
+                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Email</th>
+                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Role</th>
+                                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Status</th>
+                                <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -178,62 +203,66 @@ const UsersPage = () => {
                                     </td>
                                 </tr>
                             ) : (
-                                users.map((user) => (
-                                    <tr key={user.id} style={{ borderTop: '1px solid #e5e7eb' }}>
-                                        <td style={{ padding: '12px 16px', fontSize: '14px' }}>{user.id}</td>
-                                        <td style={{ padding: '12px 16px', fontSize: '14px' }}>{user.username}</td>
-                                        <td style={{ padding: '12px 16px', fontSize: '14px' }}>{user.email || '-'}</td>
-                                        <td style={{ padding: '12px 16px', fontSize: '14px' }}>
-                                            <span style={{
-                                                padding: '4px 8px',
-                                                borderRadius: '9999px',
-                                                fontSize: '12px',
-                                                background: user.role === 'Admin' ? '#dbeafe' :
-                                                          user.role === 'Support_Agent' ? '#fef3c7' : '#f3f4f6',
-                                                color: user.role === 'Admin' ? '#1d4ed8' :
-                                                       user.role === 'Support_Agent' ? '#b45309' : '#4b5563',
-                                            }}>
-                                                {user.role || 'User'}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: '12px 16px', fontSize: '14px' }}>
-                                            <span style={{
-                                                padding: '4px 8px',
-                                                borderRadius: '9999px',
-                                                fontSize: '12px',
-                                                background: user.is_active ? '#d1fae5' : '#f3f4f6',
-                                                color: user.is_active ? '#065f46' : '#4b5563',
-                                            }}>
-                                                {user.is_active ? 'Active' : 'Inactive'}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px' }}>
-                                            <button
-                                                onClick={() => handleEdit(user)}
-                                                style={{
-                                                    background: 'none',
-                                                    border: 'none',
-                                                    color: '#2563eb',
-                                                    cursor: 'pointer',
-                                                    marginRight: '12px',
-                                                }}
-                                            >
-                                                Edit
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(user)}
-                                                style={{
-                                                    background: 'none',
-                                                    border: 'none',
-                                                    color: '#dc2626',
-                                                    cursor: 'pointer',
-                                                }}
-                                            >
-                                                Delete
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
+                                users.map((user) => {
+                                    const role = getRoleDisplay(user);
+                                    return (
+                                        <tr key={user.id} style={{ borderTop: '1px solid #e5e7eb' }}>
+                                            <td style={{ padding: '12px 16px', fontSize: '14px' }}>{user.id}</td>
+                                            <td style={{ padding: '12px 16px', fontSize: '14px' }}>{user.username}</td>
+                                            <td style={{ padding: '12px 16px', fontSize: '14px' }}>{user.email || '-'}</td>
+                                            <td style={{ padding: '12px 16px', fontSize: '14px' }}>
+                                                <span style={{
+                                                    padding: '4px 12px',
+                                                    borderRadius: '9999px',
+                                                    fontSize: '12px',
+                                                    fontWeight: '500',
+                                                    background: role === 'Admin' ? '#fee2e2' :
+                                                              role === 'Agent' ? '#fef3c7' : '#dbeafe',
+                                                    color: role === 'Admin' ? '#dc2626' :
+                                                           role === 'Agent' ? '#b45309' : '#1d4ed8',
+                                                }}>
+                                                    {role}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '12px 16px', fontSize: '14px' }}>
+                                                <span style={{
+                                                    padding: '4px 8px',
+                                                    borderRadius: '9999px',
+                                                    fontSize: '12px',
+                                                    background: user.is_active ? '#d1fae5' : '#f3f4f6',
+                                                    color: user.is_active ? '#065f46' : '#4b5563',
+                                                }}>
+                                                    {user.is_active ? 'Active' : 'Inactive'}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px' }}>
+                                                <button
+                                                    onClick={() => handleEdit(user)}
+                                                    style={{
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        color: '#2563eb',
+                                                        cursor: 'pointer',
+                                                        marginRight: '12px',
+                                                    }}
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(user)}
+                                                    style={{
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        color: '#dc2626',
+                                                        cursor: 'pointer',
+                                                    }}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
@@ -273,10 +302,9 @@ const UsersPage = () => {
                             {editingUser ? 'Edit User' : 'Add User'}
                         </h2>
                         <form onSubmit={handleSubmit}>
+                            {/* Username */}
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>
-                                    Username
-                                </label>
+                                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>Username</label>
                                 <input
                                     type="text"
                                     value={formData.username}
@@ -293,10 +321,9 @@ const UsersPage = () => {
                                 />
                             </div>
 
+                            {/* Email */}
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>
-                                    Email
-                                </label>
+                                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>Email</label>
                                 <input
                                     type="email"
                                     value={formData.email}
@@ -312,49 +339,46 @@ const UsersPage = () => {
                                 />
                             </div>
 
-                            <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>
-                                    First Name
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.first_name}
-                                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                                    style={{
-                                        width: '100%',
-                                        padding: '8px 12px',
-                                        border: '1px solid #d1d5db',
-                                        borderRadius: '4px',
-                                        fontSize: '14px',
-                                        outline: 'none',
-                                    }}
-                                />
+                            {/* First & Last Name */}
+                            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>First Name</label>
+                                    <input
+                                        type="text"
+                                        value={formData.first_name}
+                                        onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px 12px',
+                                            border: '1px solid #d1d5db',
+                                            borderRadius: '4px',
+                                            fontSize: '14px',
+                                            outline: 'none',
+                                        }}
+                                    />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>Last Name</label>
+                                    <input
+                                        type="text"
+                                        value={formData.last_name}
+                                        onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px 12px',
+                                            border: '1px solid #d1d5db',
+                                            borderRadius: '4px',
+                                            fontSize: '14px',
+                                            outline: 'none',
+                                        }}
+                                    />
+                                </div>
                             </div>
 
-                            <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>
-                                    Last Name
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.last_name}
-                                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                                    style={{
-                                        width: '100%',
-                                        padding: '8px 12px',
-                                        border: '1px solid #d1d5db',
-                                        borderRadius: '4px',
-                                        fontSize: '14px',
-                                        outline: 'none',
-                                    }}
-                                />
-                            </div>
-
+                            {/* Password (only for new users) */}
                             {!editingUser && (
                                 <div style={{ marginBottom: '16px' }}>
-                                    <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>
-                                        Password
-                                    </label>
+                                    <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>Password</label>
                                     <input
                                         type="password"
                                         value={formData.password}
@@ -372,10 +396,9 @@ const UsersPage = () => {
                                 </div>
                             )}
 
+                            {/*  ROLE DROPDOWN */}
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>
-                                    Role
-                                </label>
+                                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>Role</label>
                                 <select
                                     value={formData.role}
                                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
@@ -390,11 +413,12 @@ const UsersPage = () => {
                                     }}
                                 >
                                     <option value="User">User</option>
-                                    <option value="Support_Agent">Support Agent</option>
+                                    <option value="Agent">Agent</option>
                                     <option value="Admin">Admin</option>
                                 </select>
                             </div>
 
+                            {/* Active */}
                             <div style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                                     <input
@@ -403,17 +427,6 @@ const UsersPage = () => {
                                         onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
                                     />
                                     Active
-                                </label>
-                            </div>
-
-                            <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.is_staff}
-                                        onChange={(e) => setFormData({ ...formData, is_staff: e.target.checked })}
-                                    />
-                                    Staff (can access admin)
                                 </label>
                             </div>
 

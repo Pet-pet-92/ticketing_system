@@ -71,7 +71,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             label: 'Users',
             items: [
                 { label: 'All Users', path: '/users' },
-                { label: 'Roles', path: '/roles' },
+                //{ label: 'Roles', path: '/roles' },
             ],
             roles: ['admin'],
         },
