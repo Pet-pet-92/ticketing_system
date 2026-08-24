@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
+import FileUpload from '../components/common/FileUpload';
 
 const CreateTicketPage = () => {
     const { user } = useAuth();
@@ -13,6 +14,7 @@ const CreateTicketPage = () => {
     const [categories, setCategories] = useState([]);
     const [types, setTypes] = useState([]);
     const [departments, setDepartments] = useState([]);
+    const [attachments, setAttachments] = useState([]);
     
     const [formData, setFormData] = useState({
         title: '',
@@ -55,7 +57,6 @@ const CreateTicketPage = () => {
         setError('');
         setSuccess('');
 
-        // Validation
         if (!formData.title.trim()) {
             setError('Title is required');
             setSubmitting(false);
@@ -78,24 +79,30 @@ const CreateTicketPage = () => {
         }
 
         try {
-            const payload = {
-                title: formData.title.trim(),
-                description: formData.description.trim(),
-                category: parseInt(formData.category),
-                type: parseInt(formData.type),
-                department: formData.department ? parseInt(formData.department) : null,
-            };
-
-            const response = await api.post('/tickets/', payload);
+            const formDataObj = new FormData();
+            formDataObj.append('title', formData.title.trim());
+            formDataObj.append('description', formData.description.trim());
+            formDataObj.append('category', parseInt(formData.category));
+            formDataObj.append('type', parseInt(formData.type));
+            if (formData.department) {
+                formDataObj.append('department', parseInt(formData.department));
+            }
             
-            // Store the new ticket ID to show on dashboard
+            // Append attachments
+            attachments.forEach((file) => {
+                formDataObj.append('attachments', file);
+            });
+
+            const response = await api.post('/tickets/', formDataObj, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            
             const newTicketId = response.data.id;
             localStorage.setItem('new_ticket_id', newTicketId);
             localStorage.setItem('new_ticket_created', 'true');
             
             setSuccess(`Ticket #${newTicketId} created successfully!`);
             
-            // Redirect to dashboard after 1.5 seconds
             setTimeout(() => {
                 navigate('/dashboard');
             }, 1500);
@@ -253,7 +260,7 @@ const CreateTicketPage = () => {
                 </div>
 
                 {/* Department (Optional) */}
-                <div style={{ marginBottom: '24px' }}>
+                <div style={{ marginBottom: '20px' }}>
                     <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500', fontSize: '14px' }}>
                         Department <span style={{ color: '#6b7280', fontSize: '12px' }}>(Optional)</span>
                     </label>
@@ -278,6 +285,18 @@ const CreateTicketPage = () => {
                             </option>
                         ))}
                     </select>
+                </div>
+
+                {/* File Upload */}
+                <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500', fontSize: '14px' }}>
+                        Attachments <span style={{ color: '#6b7280', fontSize: '12px' }}>(Optional)</span>
+                    </label>
+                    <FileUpload
+                        onFilesSelected={setAttachments}
+                        multiple={true}
+                        accept="image/*,.pdf,.doc,.docx,.txt,.zip"
+                    />
                 </div>
 
                 {/* Submit Button */}

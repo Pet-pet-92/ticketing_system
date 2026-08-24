@@ -163,7 +163,7 @@ const DashboardPage = () => {
                         </p>
                         {activeFilter === card.key && (
                             <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
-                                ⚡ Active filter
+                            
                             </p>
                         )}
                     </div>

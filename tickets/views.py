@@ -11,7 +11,7 @@ from django.db.models import Count, Q
 from datetime import timedelta, datetime
 from .models import (
     Ticket, TicketComment, TicketCategory, TicketType,
-    Department, PriorityRule, SLA
+    Department, PriorityRule, SLA, TicketAttachment
 )
 from .serializers import (
     TicketSerializer, TicketCommentSerializer,
@@ -160,6 +160,9 @@ class TicketViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
+    # ============================================
+    # ADD COMMENT WITH ATTACHMENTS (FIXED)
+    # ============================================
     @action(detail=True, methods=['post'])
     def add_comment(self, request, pk=None):
         ticket = self.get_object()
@@ -169,11 +172,28 @@ class TicketViewSet(viewsets.ModelViewSet):
                 {'error': 'Comment text is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
         comment = TicketComment.objects.create(
             ticket=ticket,
             user=request.user,
             comment=comment_text
         )
+        
+        # Handle attachments
+        files = request.FILES.getlist('attachments')
+        for file_obj in files:
+            if file_obj.size > 10 * 1024 * 1024:  # 10MB limit
+                continue
+            TicketAttachment.objects.create(
+                ticket=ticket,
+                comment=comment,
+                file=file_obj,
+                filename=file_obj.name,
+                file_size=file_obj.size,
+                file_type=file_obj.content_type,
+                uploaded_by=request.user
+            )
+        
         serializer = TicketCommentSerializer(comment)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -535,7 +555,7 @@ class SLAViewSet(viewsets.ModelViewSet):
 
 
 # ============================================
-# USER VIEWS (UPDATED)
+# USER VIEWS
 # ============================================
 class UserViewSet(viewsets.ModelViewSet):
     """
@@ -545,14 +565,12 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_serializer_class(self):
-        # Use UserCreateSerializer for create, update, and partial_update
         if self.action in ['create', 'update', 'partial_update']:
             return UserCreateSerializer
         return UserSerializer
     
     def get_queryset(self):
         user = self.request.user
-        # Only superusers can see all users
         if user.is_superuser:
             return User.objects.all().order_by('-date_joined')
         return User.objects.filter(id=user.id)
@@ -561,7 +579,6 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer.save()
     
     def perform_update(self, serializer):
-        """Handle update with role changes"""
         serializer.save()
     
     @action(detail=True, methods=['post'])
@@ -577,9 +594,6 @@ class UserViewSet(viewsets.ModelViewSet):
         user.save()
         return Response({'message': 'Password updated successfully'})
     
-    # ============================================
-    # SET ROLE ACTION
-    # ============================================
     @action(detail=True, methods=['post'])
     def set_role(self, request, pk=None):
         user = self.get_object()
@@ -591,10 +605,8 @@ class UserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Remove from all groups
         user.groups.clear()
         
-        # Reset permissions based on role
         if role == 'Admin':
             user.is_superuser = True
             user.is_staff = True
@@ -605,7 +617,7 @@ class UserViewSet(viewsets.ModelViewSet):
             user.is_staff = True
             group, _ = Group.objects.get_or_create(name='Support_Agent')
             user.groups.add(group)
-        else:  # User
+        else:
             user.is_superuser = False
             user.is_staff = False
             group, _ = Group.objects.get_or_create(name='User')
@@ -622,7 +634,6 @@ class UserViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def roles(self, request):
-        """Get all available roles"""
         roles = ['Admin', 'Support_Agent', 'User']
         return Response(roles)
 
@@ -631,19 +642,15 @@ class UserViewSet(viewsets.ModelViewSet):
 # ROLE (GROUP) VIEWS
 # ============================================
 class GroupViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint for Roles (Groups)
-    """
     queryset = Group.objects.all()
     permission_classes = [permissions.IsAuthenticated]
     
     def get_serializer_class(self):
-        if self.action == 'create' or self.action == 'update':
+        if self.action in ['create', 'update']:
             return GroupCreateSerializer
         return GroupSerializer
     
     def get_queryset(self):
-        # Only superusers can manage groups
         if self.request.user.is_superuser:
             return Group.objects.all()
         return Group.objects.none()
@@ -653,15 +660,11 @@ class GroupViewSet(viewsets.ModelViewSet):
 # PERMISSION VIEWS
 # ============================================
 class PermissionViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    API endpoint for Permissions (read-only)
-    """
     queryset = Permission.objects.all()
     serializer_class = PermissionSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        # Only superusers can view permissions
         if self.request.user.is_superuser:
             return Permission.objects.all().order_by('content_type__app_label', 'codename')
         return Permission.objects.none()
@@ -681,13 +684,9 @@ from django.contrib.auth.models import User
 
 
 class DailyReportView(APIView):
-    """
-    Daily Summary Report
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Get date from query param or use today
         date_str = request.query_params.get('date')
         if date_str:
             try:
@@ -704,21 +703,15 @@ class DailyReportView(APIView):
             datetime.combine(report_date, datetime.max.time())
         )
 
-        # New tickets
         new_tickets = Ticket.objects.filter(created_at__range=[start_of_day, end_of_day])
-        
-        # Resolved tickets
         resolved_tickets = Ticket.objects.filter(
             status='resolved',
             resolved_at__range=[start_of_day, end_of_day]
         )
-        
-        # Open tickets by priority
         open_by_priority = Ticket.objects.filter(
             status__in=['open', 'in_progress']
         ).values('priority').annotate(count=Count('id'))
         
-        # SLA compliance
         total_resolved = Ticket.objects.filter(status='resolved').count()
         met_sla = Ticket.objects.filter(
             status='resolved',
@@ -727,7 +720,6 @@ class DailyReportView(APIView):
         ).count()
         sla_compliance = round((met_sla / total_resolved * 100), 2) if total_resolved > 0 else 100
         
-        # Top categories
         top_categories = Ticket.objects.filter(
             created_at__range=[start_of_day, end_of_day]
         ).values('category__name').annotate(
@@ -745,18 +737,12 @@ class DailyReportView(APIView):
 
 
 class WeeklyReportView(APIView):
-    """
-    Weekly Performance Report
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         week_ago = timezone.now() - timedelta(days=7)
-        
-        # Tickets this week
         tickets_this_week = Ticket.objects.filter(created_at__gte=week_ago)
         
-        # Agent performance
         agents = User.objects.filter(groups__name='Support_Agent')
         agent_performance = []
         
@@ -772,7 +758,6 @@ class WeeklyReportView(APIView):
                 created_at__gte=week_ago
             ).count()
             
-            # Average resolution time (manual calculation for SQLite)
             resolved_tickets = Ticket.objects.filter(
                 assigned_to=agent,
                 status='resolved',
@@ -797,7 +782,6 @@ class WeeklyReportView(APIView):
                     else:
                         avg_time = f"{minutes}m"
             
-            # SLA compliance for this agent
             total_tickets = Ticket.objects.filter(
                 assigned_to=agent,
                 status='resolved',
@@ -823,14 +807,12 @@ class WeeklyReportView(APIView):
                 'tickets_handled': total_tickets,
             })
         
-        # Top categories
         top_categories = list(Ticket.objects.filter(
             created_at__gte=week_ago
         ).values('category__name').annotate(
             count=Count('id')
         ).order_by('-count')[:5])
         
-        # SLA compliance
         total_resolved = Ticket.objects.filter(status='resolved').count()
         met_sla = Ticket.objects.filter(
             status='resolved',
@@ -854,9 +836,6 @@ class WeeklyReportView(APIView):
 
 
 class SLAReportView(APIView):
-    """
-    SLA Compliance Report
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -871,7 +850,6 @@ class SLAReportView(APIView):
                 'by_priority': []
             })
         
-        # Overall SLA compliance
         met_sla = Ticket.objects.filter(
             status__in=['resolved', 'closed'],
             sla_response_breached=False,
@@ -881,7 +859,6 @@ class SLAReportView(APIView):
         breached = total_tickets - met_sla
         compliance = round((met_sla / total_tickets) * 100, 2)
         
-        # SLA by priority
         by_priority = []
         for priority in ['critical', 'high', 'medium', 'low']:
             total = Ticket.objects.filter(
@@ -915,9 +892,6 @@ class SLAReportView(APIView):
 
 
 class WorkloadReportView(APIView):
-    """
-    Agent Workload Report
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -941,14 +915,12 @@ class WorkloadReportView(APIView):
                 resolved_at__date=timezone.now().date()
             ).count()
             
-            # Get SLA breaches for this agent
             breached = Ticket.objects.filter(
                 assigned_to=agent,
                 status__in=['open', 'in_progress'],
                 sla_status='breached'
             ).count()
             
-            # Get agent status
             status = 'unknown'
             if hasattr(agent, 'availability'):
                 status = agent.availability.status
@@ -969,10 +941,8 @@ class WorkloadReportView(APIView):
             'workload_summary': workload_data,
         })
 
+
 class DepartmentReportView(APIView):
-    """
-    Department Report
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -990,7 +960,6 @@ class DepartmentReportView(APIView):
                 'closed': tickets.filter(status='closed').count(),
             })
 
-        # Also include uncategorized tickets
         uncategorized = Ticket.objects.filter(department__isnull=True)
         if uncategorized.exists():
             report_data.append({
