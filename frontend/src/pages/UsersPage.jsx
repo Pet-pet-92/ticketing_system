@@ -87,40 +87,60 @@ const UsersPage = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setError('');
+        
         try {
             const payload = {
                 username: formData.username,
                 email: formData.email,
                 first_name: formData.first_name,
                 last_name: formData.last_name,
-                role: formData.role,
                 is_active: formData.is_active,
-                is_staff: formData.is_staff || formData.role !== 'User',
             };
 
+            // Only include password for new users or if changed
             if (formData.password) {
                 payload.password = formData.password;
             }
 
             if (editingUser) {
-                //  Update user with role change
+                // ✅ Step 1: Update user info
                 await api.put(`/users/${editingUser.id}/`, payload);
                 
-                //  If role changed, update the role via the dedicated endpoint
-                if (editingUser.role !== formData.role) {
-                    await api.post(`/users/${editingUser.id}/set_role/`, {
-                        role: formData.role,
-                    });
-                }
+                // ✅ Step 2: Update role via dedicated endpoint
+                const roleResponse = await api.post(`/users/${editingUser.id}/set_role/`, {
+                    role: formData.role,
+                });
+                
+                console.log('Role updated:', roleResponse.data);
+                
             } else {
-                //  Create new user with role
-                await api.post('/users/', payload);
+                // Create new user with role
+                const createPayload = {
+                    ...payload,
+                    role: formData.role,
+                };
+                await api.post('/users/', createPayload);
             }
+            
             setShowModal(false);
             fetchUsers();
+            
         } catch (err) {
-            setError('Failed to save user');
-            console.error(err);
+            console.error('Error saving user:', err);
+            
+            // Display detailed error message
+            let errorMsg = 'Failed to save user';
+            if (err.response?.data?.error) {
+                errorMsg = typeof err.response.data.error === 'string' 
+                    ? err.response.data.error 
+                    : JSON.stringify(err.response.data.error);
+            } else if (err.response?.data?.detail) {
+                errorMsg = err.response.data.detail;
+            } else if (err.message) {
+                errorMsg = err.message;
+            }
+            setError(errorMsg);
         }
     };
 
@@ -129,15 +149,6 @@ const UsersPage = () => {
         if (user.is_superuser) return 'Admin';
         if (user.groups && user.groups.includes('Support_Agent')) return 'Agent';
         return user.role || 'User';
-    };
-
-    // Helper to get role color
-    const getRoleColor = (role) => {
-        switch (role) {
-            case 'Admin': return '#dc2626';
-            case 'Agent': return '#f59e0b';
-            default: return '#3b82f6';
-        }
     };
 
     if (loading) {
@@ -396,7 +407,7 @@ const UsersPage = () => {
                                 </div>
                             )}
 
-                            {/*  ROLE DROPDOWN */}
+                            {/* Role Dropdown */}
                             <div style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>Role</label>
                                 <select

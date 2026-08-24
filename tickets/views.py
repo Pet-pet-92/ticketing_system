@@ -572,6 +572,9 @@ class UserViewSet(viewsets.ModelViewSet):
         user.save()
         return Response({'message': 'Password updated successfully'})
     
+    # ============================================
+    # ✅ SET ROLE ACTION (FULLY IMPLEMENTED)
+    # ============================================
     @action(detail=True, methods=['post'])
     def set_role(self, request, pk=None):
         user = self.get_object()
@@ -586,6 +589,7 @@ class UserViewSet(viewsets.ModelViewSet):
         # Remove from all groups
         user.groups.clear()
         
+        # Reset permissions based on role
         if role == 'Admin':
             user.is_superuser = True
             user.is_staff = True
@@ -596,14 +600,20 @@ class UserViewSet(viewsets.ModelViewSet):
             user.is_staff = True
             group, _ = Group.objects.get_or_create(name='Support_Agent')
             user.groups.add(group)
-        else:
+        else:  # User
             user.is_superuser = False
             user.is_staff = False
             group, _ = Group.objects.get_or_create(name='User')
             user.groups.add(group)
         
         user.save()
-        return Response({'message': f'Role updated to {role}'})
+        
+        return Response({
+            'message': f'Role updated to {role}',
+            'role': role,
+            'is_staff': user.is_staff,
+            'is_superuser': user.is_superuser,
+        })
     
     @action(detail=False, methods=['get'])
     def roles(self, request):
@@ -989,4 +999,4 @@ class DepartmentReportView(APIView):
 
         return Response({
             'departments': report_data,
-        })   
+        })
