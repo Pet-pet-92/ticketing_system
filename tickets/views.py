@@ -535,7 +535,7 @@ class SLAViewSet(viewsets.ModelViewSet):
 
 
 # ============================================
-# USER VIEWS
+# USER VIEWS (UPDATED)
 # ============================================
 class UserViewSet(viewsets.ModelViewSet):
     """
@@ -545,7 +545,8 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_serializer_class(self):
-        if self.action == 'create':
+        # Use UserCreateSerializer for create, update, and partial_update
+        if self.action in ['create', 'update', 'partial_update']:
             return UserCreateSerializer
         return UserSerializer
     
@@ -557,6 +558,10 @@ class UserViewSet(viewsets.ModelViewSet):
         return User.objects.filter(id=user.id)
     
     def perform_create(self, serializer):
+        serializer.save()
+    
+    def perform_update(self, serializer):
+        """Handle update with role changes"""
         serializer.save()
     
     @action(detail=True, methods=['post'])
@@ -573,7 +578,7 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response({'message': 'Password updated successfully'})
     
     # ============================================
-    # ✅ SET ROLE ACTION (FULLY IMPLEMENTED)
+    # SET ROLE ACTION
     # ============================================
     @action(detail=True, methods=['post'])
     def set_role(self, request, pk=None):

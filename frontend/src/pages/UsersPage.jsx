@@ -90,12 +90,14 @@ const UsersPage = () => {
         setError('');
         
         try {
+            // ✅ Build payload with role included
             const payload = {
                 username: formData.username,
                 email: formData.email,
                 first_name: formData.first_name,
                 last_name: formData.last_name,
                 is_active: formData.is_active,
+                role: formData.role,  // ✅ Include role in the main payload
             };
 
             // Only include password for new users or if changed
@@ -104,23 +106,11 @@ const UsersPage = () => {
             }
 
             if (editingUser) {
-                // ✅ Step 1: Update user info
+                // ✅ Update user info and role in one request
                 await api.put(`/users/${editingUser.id}/`, payload);
-                
-                // ✅ Step 2: Update role via dedicated endpoint
-                const roleResponse = await api.post(`/users/${editingUser.id}/set_role/`, {
-                    role: formData.role,
-                });
-                
-                console.log('Role updated:', roleResponse.data);
-                
             } else {
                 // Create new user with role
-                const createPayload = {
-                    ...payload,
-                    role: formData.role,
-                };
-                await api.post('/users/', createPayload);
+                await api.post('/users/', payload);
             }
             
             setShowModal(false);

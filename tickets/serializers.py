@@ -60,7 +60,7 @@ class SLASerializer(serializers.ModelSerializer):
 
 
 # ============================================
-# TICKET SERIALIZER (UPDATED)
+# TICKET SERIALIZER
 # ============================================
 class TicketSerializer(serializers.ModelSerializer):
     created_by = serializers.StringRelatedField()
@@ -130,8 +130,11 @@ class UserSerializer(serializers.ModelSerializer):
         return 'User'
 
 
+# ============================================
+# USER CREATE/UPDATE SERIALIZER (UPDATED)
+# ============================================
 class UserCreateSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=True)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
     role = serializers.CharField(write_only=True, required=False, default='User')
     
     class Meta:
@@ -141,30 +144,68 @@ class UserCreateSerializer(serializers.ModelSerializer):
             'password', 'is_active', 'is_staff', 'is_superuser',
             'role'
         ]
+        extra_kwargs = {
+            'password': {'required': False, 'allow_blank': True},
+        }
     
     def create(self, validated_data):
         role = validated_data.pop('role', 'User')
-        password = validated_data.pop('password')
+        password = validated_data.pop('password', None)
         user = User(**validated_data)
-        user.set_password(password)
+        if password:
+            user.set_password(password)
+        else:
+            # Set a temporary password if none provided (shouldn't happen for create)
+            user.set_password('TemporaryPass123!')
         user.save()
         
-        # Assign role (group)
+        # Assign role
+        self._assign_role(user, role)
+        
+        return user
+    
+    def update(self, instance, validated_data):
+        # Extract role and password
+        role = validated_data.pop('role', None)
+        password = validated_data.pop('password', None)
+        
+        # Update user fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        if password:
+            instance.set_password(password)
+        
+        instance.save()
+        
+        # Handle role update if provided
+        if role:
+            self._assign_role(instance, role)
+        
+        return instance
+    
+    def _assign_role(self, user, role):
+        """Helper to assign role to user"""
+        # Remove from all groups
+        user.groups.clear()
+        
         if role == 'Admin':
             user.is_superuser = True
             user.is_staff = True
             group, _ = Group.objects.get_or_create(name='Admin')
             user.groups.add(group)
         elif role == 'Support_Agent':
+            user.is_superuser = False
             user.is_staff = True
             group, _ = Group.objects.get_or_create(name='Support_Agent')
             user.groups.add(group)
-        else:
+        else:  # User
+            user.is_superuser = False
+            user.is_staff = False
             group, _ = Group.objects.get_or_create(name='User')
             user.groups.add(group)
         
         user.save()
-        return user
 
 
 # ============================================
