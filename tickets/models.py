@@ -341,7 +341,7 @@ class Ticket(models.Model):
     )
     
     # ============================================
-    # TICKET NUMBER FIELD (NEW)
+    # TICKET NUMBER FIELD
     # ============================================
     ticket_number = models.CharField(
         max_length=20,
@@ -446,7 +446,7 @@ class Ticket(models.Model):
         return f"{self.ticket_number or self.id} - {self.title} - {self.get_status_display()}"
     
     # ============================================
-    # TICKET NUMBER GENERATION (NEW)
+    # TICKET NUMBER GENERATION
     # ============================================
     def generate_ticket_number(self):
         """
@@ -973,28 +973,66 @@ class ReportSchedule(models.Model):
     def __str__(self):
         return f"{self.name} ({self.get_frequency_display()})"
 
-# ============================================
-# 13) Attachment Model
-# ============================================
 
-    class TicketAttachment(models.Model):
-        ticket = models.ForeignKey('Ticket', on_delete=models.CASCADE, related_name='attachments')
-    comment = models.ForeignKey('TicketComment', on_delete=models.CASCADE, null=True, blank=True, related_name='attachments')
-    file = models.FileField(upload_to='ticket_attachments/%Y/%m/%d/')
-    filename = models.CharField(max_length=255)
-    file_size = models.IntegerField(help_text="File size in bytes")
-    file_type = models.CharField(max_length=100, blank=True)
-    uploaded_by = models.ForeignKey('auth.User', on_delete=models.CASCADE)
-    uploaded_at = models.DateTimeField(auto_now_add=True)
+# ============================================
+# 13) TicketAttachment Model (FIXED)
+# ============================================
+class TicketAttachment(models.Model):
+    """
+    File attachments for tickets (screenshots, documents, etc.)
+    """
+    
+    ticket = models.ForeignKey(
+        'Ticket',
+        on_delete=models.CASCADE,
+        related_name='attachments',
+        help_text="The ticket this attachment belongs to"
+    )
+    comment = models.ForeignKey(
+        'TicketComment',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='attachments',
+        help_text="The comment this attachment belongs to (if any)"
+    )
+    file = models.FileField(
+        upload_to='ticket_attachments/%Y/%m/%d/',
+        help_text="The uploaded file"
+    )
+    filename = models.CharField(
+        max_length=255,
+        help_text="Original filename"
+    )
+    file_size = models.IntegerField(
+        help_text="File size in bytes"
+    )
+    file_type = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="MIME type of the file"
+    )
+    uploaded_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.CASCADE,
+        help_text="Who uploaded this file"
+    )
+    uploaded_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When the file was uploaded"
+    )
     
     class Meta:
         ordering = ['-uploaded_at']
+        verbose_name = "Ticket Attachment"
+        verbose_name_plural = "Ticket Attachments"
     
     def __str__(self):
         return f"{self.filename} - {self.ticket.title}"
     
     @property
     def size_display(self):
+        """Display file size in human-readable format"""
         if self.file_size < 1024:
             return f"{self.file_size} B"
         elif self.file_size < 1024 * 1024:
