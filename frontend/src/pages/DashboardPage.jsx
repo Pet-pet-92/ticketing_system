@@ -105,7 +105,7 @@ const DashboardPage = () => {
                     </p>
                     {newTicketId && (
                         <p style={{ color: '#16a34a', marginTop: '4px' }}>
-                             Ticket created successfully!
+                            ✅ Ticket created successfully!
                         </p>
                     )}
                 </div>
@@ -157,13 +157,13 @@ const DashboardPage = () => {
                     >
                         <h3 style={{ color: card.color, fontSize: '14px', fontWeight: '500' }}>
                             {card.label}
- ive filter                       </h3>
+                        </h3>
                         <p style={{ fontSize: '24px', fontWeight: 'bold', color: card.color }}>
                             {card.value}
                         </p>
                         {activeFilter === card.key && (
                             <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
-                                
+                                ⚡ Active filter
                             </p>
                         )}
                     </div>
