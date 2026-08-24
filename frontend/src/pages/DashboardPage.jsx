@@ -49,7 +49,7 @@ const DashboardPage = () => {
         fetchDashboardData();
     }, []);
 
-    // ✅ Filter tickets by status
+    // Filter tickets by status
     const filterByStatus = (status) => {
         setActiveFilter(status);
         if (status === 'total') {
@@ -84,7 +84,7 @@ const DashboardPage = () => {
         return 'Viewing tickets you have created';
     };
 
-    // ✅ Card configuration
+    // Card configuration
     const cards = [
         { key: 'total', label: 'Total', value: stats.total, color: '#6b7280', bg: '#f9fafb' },
         { key: 'open', label: 'Open', value: stats.open, color: '#2563eb', bg: '#eff6ff' },
@@ -157,13 +157,13 @@ const DashboardPage = () => {
                     >
                         <h3 style={{ color: card.color, fontSize: '14px', fontWeight: '500' }}>
                             {card.label}
-                        </h3>
+ ive filter                       </h3>
                         <p style={{ fontSize: '24px', fontWeight: 'bold', color: card.color }}>
                             {card.value}
                         </p>
                         {activeFilter === card.key && (
                             <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
-                                ⚡ Active filter
+                                
                             </p>
                         )}
                     </div>
