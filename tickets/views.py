@@ -17,7 +17,10 @@ from .serializers import (
     TicketSerializer, TicketCommentSerializer,
     TicketCategorySerializer, TicketTypeSerializer,
     DepartmentSerializer, PriorityRuleSerializer,
-    SLASerializer
+    SLASerializer,
+    PermissionSerializer,
+    UserSerializer, UserCreateSerializer,
+    GroupSerializer, GroupCreateSerializer,
 )
 
 
