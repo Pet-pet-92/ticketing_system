@@ -78,10 +78,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         reports: {
             label: 'Reports',
             items: [
-                { label: 'Daily Summary', path: '/reports/daily' },
-                { label: 'Weekly Performance', path: '/reports/weekly' },
-                { label: 'SLA Compliance', path: '/reports/sla' },
-                { label: 'Agent Workload', path: '/reports/workload' },
+                { label: 'Reports Dashboard', path: '/reports' },  // ✅ UNIFIED
             ],
             roles: ['admin'],
         },

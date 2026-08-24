@@ -18,15 +18,9 @@ import DepartmentsPage from './pages/DepartmentsPage';
 import PriorityRulesPage from './pages/PriorityRulesPage';
 import SLARulesPage from './pages/SLARulesPage';
 
-//users page
+// Users page
 import UsersPage from './pages/UsersPage';
 import RolesPage from './pages/RolesPage';
-
-//Reports page
-import ReportsDailyPage from './pages/ReportsDailyPage';
-import ReportsWeeklyPage from './pages/ReportsWeeklyPage';
-import ReportsSLAPage from './pages/ReportsSLAPage';
-import ReportsWorkloadPage from './pages/ReportsWorkloadPage';
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
@@ -84,7 +78,7 @@ function App() {
                         }
                     />
 
-                                        <Route
+                    <Route
                         path="/analytics"
                         element={
                             <ProtectedRoute>
@@ -95,7 +89,7 @@ function App() {
                         }
                     />
 
-                                        <Route
+                    <Route
                         path="/tickets/:id"
                         element={
                             <ProtectedRoute>
@@ -173,8 +167,6 @@ function App() {
                         }
                     />
 
-                   
-                    // Inside Routes:
                     <Route
                         path="/users"
                         element={
@@ -185,6 +177,7 @@ function App() {
                             </ProtectedRoute>
                         }
                     />
+
                     <Route
                         path="/roles"
                         element={
@@ -196,54 +189,13 @@ function App() {
                         }
                     />
 
-                                <Route
-                        path="/reports/daily"
-                        element={
-                            <ProtectedRoute>
-                                <Layout>
-                                    <ReportsDailyPage />
-                                </Layout>
-                            </ProtectedRoute>
-                        }
-                    />
+                    {/* ✅ UNIFIED REPORTS ROUTE (One page with dropdown) */}
                     <Route
-                        path="/reports/weekly"
-                        element={
-                            <ProtectedRoute>
-                                <Layout>
-                                    <ReportsWeeklyPage />
-                                </Layout>
-                            </ProtectedRoute>
-                        }
-                    />
-                                        
-                                        <Route
                         path="/reports"
                         element={
                             <ProtectedRoute>
                                 <Layout>
                                     <ReportsPage />
-                                </Layout>
-                            </ProtectedRoute>
-                        }
-                    />
-
-                    <Route
-                        path="/reports/sla"
-                        element={
-                            <ProtectedRoute>
-                                <Layout>
-                                    <ReportsSLAPage />
-                                </Layout>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/reports/workload"
-                        element={
-                            <ProtectedRoute>
-                                <Layout>
-                                    <ReportsWorkloadPage />
                                 </Layout>
                             </ProtectedRoute>
                         }
