@@ -5,6 +5,7 @@ const TicketReassign = ({ ticketId, currentAssignee, onReassigned }) => {
     const [agents, setAgents] = useState([]);
     const [selectedAgent, setSelectedAgent] = useState('');
     const [loading, setLoading] = useState(false);
+    const [fetchingAgents, setFetchingAgents] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [showDropdown, setShowDropdown] = useState(false);
@@ -16,11 +17,20 @@ const TicketReassign = ({ ticketId, currentAssignee, onReassigned }) => {
     }, [showDropdown]);
 
     const fetchAgents = async () => {
+        setFetchingAgents(true);
+        setError('');
         try {
-            const response = await api.get('/tickets/available-agents/');
+            const response = await api.get('/tickets/available_agents/');
+            console.log('Agents response:', response.data);
             setAgents(response.data || []);
+            if (response.data.length === 0) {
+                setError('No agents found. Please add users to the Support_Agent group.');
+            }
         } catch (error) {
             console.error('Error fetching agents:', error);
+            setError('Failed to load agents. Please try again.');
+        } finally {
+            setFetchingAgents(false);
         }
     };
 
@@ -69,7 +79,7 @@ const TicketReassign = ({ ticketId, currentAssignee, onReassigned }) => {
                     gap: '8px',
                 }}
             >
-                 Reassign
+                🔄 Reassign
                 <span style={{ fontSize: '10px' }}>{showDropdown ? '▲' : '▼'}</span>
             </button>
 
@@ -126,27 +136,41 @@ const TicketReassign = ({ ticketId, currentAssignee, onReassigned }) => {
                         </div>
                     )}
 
-                    <select
-                        value={selectedAgent}
-                        onChange={(e) => setSelectedAgent(e.target.value)}
-                        style={{
-                            width: '100%',
-                            padding: '8px 12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '4px',
-                            fontSize: '14px',
-                            outline: 'none',
-                            background: 'white',
-                            marginBottom: '12px',
-                        }}
-                    >
-                        <option value="">Select an agent...</option>
-                        {agents.map((agent) => (
-                            <option key={agent.id} value={agent.id}>
-                                {agent.username} {agent.id === parseInt(selectedAgent) ? '' : ''}
-                            </option>
-                        ))}
-                    </select>
+                    {fetchingAgents ? (
+                        <div style={{ textAlign: 'center', padding: '12px' }}>
+                            <p style={{ fontSize: '14px', color: '#6b7280' }}>Loading agents...</p>
+                        </div>
+                    ) : (
+                        <>
+                            <select
+                                value={selectedAgent}
+                                onChange={(e) => setSelectedAgent(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '8px 12px',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '4px',
+                                    fontSize: '14px',
+                                    outline: 'none',
+                                    background: 'white',
+                                    marginBottom: '12px',
+                                }}
+                            >
+                                <option value="">Select an agent...</option>
+                                {agents.map((agent) => (
+                                    <option key={agent.id} value={agent.id}>
+                                        {agent.username} {agent.first_name ? `(${agent.first_name} ${agent.last_name || ''})` : ''}
+                                    </option>
+                                ))}
+                            </select>
+
+                            {agents.length === 0 && !fetchingAgents && (
+                                <p style={{ fontSize: '12px', color: '#dc2626', marginBottom: '12px' }}>
+                                    No agents available. Please add users to the Support_Agent group.
+                                </p>
+                            )}
+                        </>
+                    )}
 
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                         <button
@@ -164,14 +188,14 @@ const TicketReassign = ({ ticketId, currentAssignee, onReassigned }) => {
                         </button>
                         <button
                             onClick={handleReassign}
-                            disabled={loading || !selectedAgent}
+                            disabled={loading || !selectedAgent || agents.length === 0}
                             style={{
                                 padding: '6px 16px',
-                                background: loading || !selectedAgent ? '#93c5fd' : '#8b5cf6',
+                                background: loading || !selectedAgent || agents.length === 0 ? '#93c5fd' : '#8b5cf6',
                                 color: 'white',
                                 border: 'none',
                                 borderRadius: '4px',
-                                cursor: loading || !selectedAgent ? 'not-allowed' : 'pointer',
+                                cursor: loading || !selectedAgent || agents.length === 0 ? 'not-allowed' : 'pointer',
                                 fontSize: '13px',
                             }}
                         >
